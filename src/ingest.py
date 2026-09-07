@@ -71,14 +71,39 @@ def load_and_join() -> pd.DataFrame:
     df = df.merge(first_output, on="txId", how="left")
     df = df.merge(network, on="txId", how="left")
 
+    # --- amount_btc / fee_btc -------------------------------------------
+    # The synthetic stand-in fabricated "total_btc_transacted"/"fee_btc" per
+    # transaction. The real Elliptic++ txs_features.csv is fully anonymized
+    # (Local_feature_*/Aggregate_feature_*) and never exposes a real per-tx
+    # BTC amount or fee -- that's inherent to the dataset, not a filename
+    # mismatch. When those synthetic columns aren't present, fall back to
+    # each src wallet's real btc_transacted_mean from the wallets file (a
+    # genuine, if wallet-level rather than tx-level, BTC signal) and leave
+    # fee_btc at 0.0 since no real fee data exists anywhere in Elliptic++.
+    if "total_btc_transacted" in df.columns:
+        amount_btc = df["total_btc_transacted"]
+    else:
+        wallets_btc = pd.read_csv(
+            cfg.RAW_FILES["wallets_features"],
+            usecols=lambda c: c in ("address", "btc_transacted_mean"),
+        )
+        wallets_btc = wallets_btc.groupby("address", as_index=False)["btc_transacted_mean"].mean()
+        df = df.merge(
+            wallets_btc.rename(columns={"address": "src_wallet", "btc_transacted_mean": "amount_btc"}),
+            on="src_wallet", how="left",
+        )
+        amount_btc = df["amount_btc"].fillna(0.0)
+
+    fee_btc = df["fee_btc"] if "fee_btc" in df.columns else 0.0
+
     # --- normalize onto the fixed unified schema -----------------------
     unified = pd.DataFrame({
-        "txid": df["txId"],
+        "txid": df["txId"].astype(str),
         "timestamp": df["timestamp"],
         "src_wallet": df["src_wallet"],
         "dst_wallet": df["dst_wallet"],
-        "amount_btc": df["total_btc_transacted"],   # Elliptic naming -> ours
-        "fee_btc": df["fee_btc"],
+        "amount_btc": amount_btc,
+        "fee_btc": fee_btc,
         "src_ip": df["src_ip"],
         "dst_ip": df["dst_ip"],
         "src_port": df["src_port"],
@@ -96,14 +121,21 @@ def validate_types(df: pd.DataFrame) -> pd.DataFrame:
     are dropped and counted rather than silently corrupting the pipeline."""
     good_rows = []
     n_bad = 0
+    first_errors = []
     for row in df.to_dict(orient="records"):
         try:
             validated = UnifiedTransaction(**row)
             good_rows.append(validated.model_dump())
-        except Exception:
+        except Exception as e:
             n_bad += 1
+            if len(first_errors) < 3:
+                first_errors.append(str(e))
     if n_bad:
         print(f"[ingest] dropped {n_bad} rows that failed type/range validation")
+        if first_errors:
+            print("[ingest] sample validation errors (first 3):")
+            for err in first_errors:
+                print(f"  - {err}")
     return pd.DataFrame(good_rows)
 
 
@@ -138,6 +170,10 @@ def main():
     print(f"[ingest] after dropping rows with missing wallet/timestamp: {len(df)} rows")
 
     df = validate_types(df)
+    if df.empty:
+        print("[ingest] 0 rows survived validation -- stopping before the "
+              "downstream steps (see the sample validation errors above).")
+        raise SystemExit(1)
     df = deduplicate(df)
     df = align_timestamps(df)
 

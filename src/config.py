@@ -33,7 +33,7 @@ RAW_FILES = {
     "txs_features": DATA_RAW / "txs_features.csv",
     "txs_classes": DATA_RAW / "txs_classes.csv",
     "txs_edgelist": DATA_RAW / "txs_edgelist.csv",
-    "wallets_features": DATA_RAW / "wallets_features_classes.csv",
+    "wallets_features": DATA_RAW / "wallets_features_classes_combined.csv",  # real Elliptic++ wallet file (fixed from wallets_features_classes.csv, which was the synthetic-only stand-in)
     "addr_tx_edgelist": DATA_RAW / "AddrTx_edgelist.csv",
     "tx_addr_edgelist": DATA_RAW / "TxAddr_edgelist.csv",
     "network_layer": DATA_RAW / "network_layer_synthetic.csv",

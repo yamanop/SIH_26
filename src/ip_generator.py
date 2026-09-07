@@ -90,6 +90,10 @@ def main():
 
     base_time = datetime(2026, 1, 1)
     rows = []
+    # real Elliptic++ txs_features.csv names the time-step column "Time step"
+    # (synthetic stand-in used "local_time_step"); support both.
+    time_col = "local_time_step" if "local_time_step" in txs_features.columns else "Time step"
+
     for _, tx in txs_features.iterrows():
         txid = tx["txId"]
         src_wallet = first_input.get(txid, rng.choice(wallets))
@@ -101,10 +105,10 @@ def main():
         # timing: time_step (1-49) maps to a rough date; burst wallets get
         # squeezed into a short window instead of spread out
         if src_wallet in burst_wallets:
-            ts = base_time + timedelta(days=int(tx["local_time_step"]) * 7,
+            ts = base_time + timedelta(days=int(tx[time_col]) * 7,
                                         minutes=int(rng.integers(0, 30)))
         else:
-            ts = base_time + timedelta(days=int(tx["local_time_step"]) * 7,
+            ts = base_time + timedelta(days=int(tx[time_col]) * 7,
                                         hours=int(rng.integers(0, 24)))
 
         country, asn = fake_geoip_lookup(src_ip)
