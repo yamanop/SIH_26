@@ -48,8 +48,8 @@ PROCESSED_FILES = {
 # ---- subsample size for the 2-day build (Day 1 scope) -----------------
 # Keep this small so every stage runs in seconds on a laptop. Bias toward
 # including known-illicit transactions so the demo has real positives.
-N_TRANSACTIONS = 3000
-N_WALLETS = 5000
+N_TRANSACTIONS = 20000
+N_WALLETS = 30000
 ILLICIT_FRACTION = 0.08          # inflated vs. real ~2% so Day-1 dev/testing
                                   # actually has enough positives to look at;
                                   # tune back down toward real-world skew
@@ -92,6 +92,7 @@ MODEL_FILES = {
     "risk_scores": DATA_PROCESSED / "risk_scores.csv",
     "lightgbm_model": DATA_PROCESSED / "lightgbm_model.txt",
     "explanations": DATA_PROCESSED / "explanations.csv",
+    "metrics": DATA_PROCESSED / "metrics.json",
 }
 
 # ---- Day 2: ensemble fusion weights (from the PRD; heuristic, not learned) --

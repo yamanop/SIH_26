@@ -27,6 +27,7 @@ Run: python src/train_models.py   (after run_day1.py)
 Output: data/processed/risk_scores.csv, data/processed/lightgbm_model.txt
 """
 import pickle
+import json
 
 import lightgbm as lgb
 import networkx as nx
@@ -231,6 +232,23 @@ def main():
 
     out.to_csv(cfg.MODEL_FILES["risk_scores"], index=False)
     print(f"[train_models] wrote risk scores -> {cfg.MODEL_FILES['risk_scores']}")
+
+    # dashboard-friendly metrics dump (the DataFrame/report text inside
+    # `metrics` isn't JSON-safe as-is, so pull out the plain values)
+    metrics_out = {
+        "n_test": metrics["n_test"],
+        "n_test_illicit": metrics["n_test_illicit"],
+        "k": metrics["k"],
+        "precision_at_k": metrics["precision_at_k"],
+        "f1": metrics["f1"],
+        "precision": metrics["precision"],
+        "recall": metrics["recall"],
+        "feature_importances": metrics["feature_importances"].to_dict(),
+        "ensemble_weights": cfg.ENSEMBLE_WEIGHTS,
+    }
+    with open(cfg.MODEL_FILES["metrics"], "w") as f:
+        json.dump(metrics_out, f, indent=2)
+    print(f"[train_models] wrote metrics -> {cfg.MODEL_FILES['metrics']}")
 
     # --- sanity checkpoint --------------------------------------------
     print(f"\n--- sanity check: top {cfg.TOP_K} highest-risk wallets ---")

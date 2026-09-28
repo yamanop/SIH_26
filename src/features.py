@@ -188,14 +188,25 @@ def main():
 
     # --- ground-truth label per wallet, for training/validation later:
     # majority class among this wallet's own transactions as sender
-    labels = unified.groupby("src_wallet")["tx_class"].agg(
+    try:
+        wallet_classes = pd.read_csv(
+            cfg.RAW_FILES["wallets_features"], usecols=["address", "class"]
+        ).rename(columns={"address": "wallet", "class": "wallet_label"})
+        wallet_classes = wallet_classes.drop_duplicates("wallet")
+    except (FileNotFoundError, ValueError):
+        wallet_classes = pd.DataFrame(columns=["wallet", "wallet_label"])
+
+    tx_derived_labels = unified.groupby("src_wallet")["tx_class"].agg(
         lambda s: s.value_counts().idxmax()
     ).reset_index().rename(columns={"src_wallet": "wallet", "tx_class": "wallet_label"})
+
+    labels = pd.concat([wallet_classes, tx_derived_labels]).drop_duplicates("wallet", keep="first")
 
     feature_table = wallet_feats.merge(peel_feats, on="wallet", how="left")
     feature_table = feature_table.merge(net_feats, on="wallet", how="left")
     feature_table = feature_table.merge(tx_level, on="wallet", how="left")
     feature_table = feature_table.merge(labels, on="wallet", how="left")
+    feature_table["wallet_label"] = feature_table["wallet_label"].fillna(3)
     feature_table = feature_table.fillna(0)
 
     feature_table.to_csv(cfg.PROCESSED_FILES["features"], index=False)
